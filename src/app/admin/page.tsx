@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Settings, Heart, CalendarHeart, Trash2, MapPin, Key, User as UserIcon, LogOut, Plus, Search, ChevronRight, ArrowLeft, Image as ImageIcon, CreditCard, Link as LinkIcon, Download, LayoutList } from "lucide-react";
+import { Users, Settings, Heart, CalendarHeart, Trash2, MapPin, Key, User as UserIcon, LogOut, Plus, Search, ChevronRight, ArrowLeft, Image as ImageIcon, CreditCard, Link as LinkIcon, Download, LayoutList, Menu, X } from "lucide-react";
 import { auth, db, storage } from "@/lib/firebase";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User } from "firebase/auth";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { collection, query, onSnapshot, doc, setDoc, deleteDoc, getDocs, where, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,6 +13,8 @@ export default function AdminDashboard() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   // Super Admin State
   const [clients, setClients] = useState<any[]>([]);
@@ -93,12 +95,16 @@ export default function AdminDashboard() {
     };
   }, [selectedClient]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (error) {
-      alert("Login gagal. Periksa email dan password Anda.");
+      if (isRegisterMode) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (error: any) {
+      alert("Autentikasi gagal: " + error.message);
     }
   };
 
@@ -156,8 +162,10 @@ export default function AdminDashboard() {
       setNewClientSlug("");
       setNewClientName("");
       setNewClientEmail("");
-    } catch (error) {
-      alert("Gagal membuat client");
+      alert("Undangan berhasil dibuat!");
+    } catch (error: any) {
+      console.error(error);
+      alert("Gagal membuat client: " + error.message);
     }
   };
 
@@ -238,9 +246,9 @@ export default function AdminDashboard() {
 
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white/10 backdrop-blur-2xl p-10 rounded-[40px] shadow-[0_20px_60px_rgba(0,0,0,0.3)] max-w-md w-full border border-white/20 relative z-10">
           <h1 className="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-[#D4AF37] to-[#F3E5AB] mb-2 font-heading tracking-wider">PREMIUM SAAS</h1>
-          <p className="text-center text-white/60 mb-10 text-sm tracking-widest uppercase">Admin Login</p>
+          <p className="text-center text-white/60 mb-10 text-sm tracking-widest uppercase">{isRegisterMode ? "Daftar Akun Klien" : "Login Dashboard"}</p>
           
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleAuth} className="space-y-6">
             <div>
               <div className="relative">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" size={20} />
@@ -253,7 +261,16 @@ export default function AdminDashboard() {
                 <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full pl-12 pr-4 py-4 border-none rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-black/20 text-white placeholder-white/30 backdrop-blur-sm transition-all" placeholder="••••••••" />
               </div>
             </div>
-            <button type="submit" className="w-full py-4 bg-gradient-to-r from-[#D4AF37] to-[#B8912E] text-[#1A0B10] font-bold rounded-2xl hover:opacity-90 transition-all shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.6)] mt-8 text-lg uppercase tracking-widest">Sign In</button>
+            <button type="submit" className="w-full py-4 bg-gradient-to-r from-[#D4AF37] to-[#B8912E] text-[#1A0B10] font-bold rounded-2xl hover:opacity-90 transition-all shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.6)] mt-8 text-lg uppercase tracking-widest">
+              {isRegisterMode ? "Daftar Sekarang" : "Sign In"}
+            </button>
+            
+            <p className="text-center text-white/60 text-sm mt-4">
+              {isRegisterMode ? "Sudah punya akun?" : "Belum punya akun?"} 
+              <button type="button" onClick={() => setIsRegisterMode(!isRegisterMode)} className="text-[#D4AF37] font-bold ml-2 hover:underline">
+                {isRegisterMode ? "Login di sini" : "Daftar di sini"}
+              </button>
+            </p>
             
             <div className="relative mt-6 mb-2">
               <div className="absolute inset-0 flex items-center">
@@ -283,12 +300,12 @@ export default function AdminDashboard() {
         <div className="absolute bottom-20 right-20 w-96 h-96 bg-[#D4AF37]/10 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="max-w-7xl mx-auto relative z-10">
-          <header className="flex justify-between items-center mb-12 bg-white/30 backdrop-blur-lg px-8 py-4 rounded-3xl border border-white/60 shadow-sm">
-            <div>
-              <h1 className="text-2xl font-bold text-[#6B0F1A] font-heading tracking-wide">SaaS Master Dashboard</h1>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">Multi-Tenant Management</p>
+          <header className="flex flex-col md:flex-row justify-between items-center mb-12 bg-white/30 backdrop-blur-lg px-8 py-4 rounded-3xl border border-white/60 shadow-sm gap-4">
+            <div className="text-center md:text-left">
+              <h1 className="text-2xl font-bold text-[#6B0F1A] font-heading tracking-wide">Dashboard Klien / Admin</h1>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">Sistem Manajemen Undangan</p>
             </div>
-            <button onClick={() => signOut(auth)} className="flex items-center gap-2 px-5 py-2.5 bg-red-500/10 text-red-600 font-bold rounded-full hover:bg-red-500/20 transition-all text-sm">
+            <button onClick={() => signOut(auth)} className="flex items-center gap-2 px-5 py-2.5 bg-red-500/10 text-red-600 font-bold rounded-full hover:bg-red-500/20 transition-all text-sm w-full md:w-auto justify-center">
               <LogOut size={16} /> Logout
             </button>
           </header>
@@ -300,11 +317,11 @@ export default function AdminDashboard() {
                   <Users size={32} />
                 </div>
                 <h3 className="text-4xl font-bold text-gray-800">{clients.length}</h3>
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mt-1">Total Klien Aktif</p>
+                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mt-1">Total Undangan Anda</p>
               </div>
               
               <button onClick={() => setShowAddClient(!showAddClient)} className={`w-full py-5 rounded-3xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg text-white bg-gradient-to-r from-[#6B0F1A] to-[#8E1422] hover:shadow-xl hover:-translate-y-1`}>
-                <Plus size={20} /> Tambah Klien Baru
+                <Plus size={20} /> Buat Undangan Baru
               </button>
 
               <AnimatePresence>
@@ -332,12 +349,12 @@ export default function AdminDashboard() {
               </AnimatePresence>
             </div>
 
-            <div className={`md:col-span-3 ${glassPanel} p-8`}>
-              <div className="flex justify-between items-center mb-6 border-b border-white/50 pb-4">
-                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><DatabaseIcon /> Database Klien</h2>
-                <div className="relative">
+            <div className={`md:col-span-3 ${glassPanel} p-4 md:p-8`}>
+              <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-white/50 pb-4 gap-4">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">Database Undangan</h2>
+                <div className="relative w-full md:w-auto">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                  <input type="text" placeholder="Cari klien..." className="pl-10 pr-4 py-2 bg-white/40 border border-white/60 rounded-full text-sm focus:outline-none focus:bg-white/80 w-64" />
+                  <input type="text" placeholder="Cari..." className="pl-10 pr-4 py-2 bg-white/40 border border-white/60 rounded-full text-sm focus:outline-none focus:bg-white/80 w-full md:w-64" />
                 </div>
               </div>
 
@@ -388,11 +405,19 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F8F5F0] to-[#EAE5D9] flex font-sans overflow-hidden">
       
-      {/* Sidebar Kiri - Glassmorphism */}
-      <div className="w-72 bg-white/40 backdrop-blur-xl border-r border-white/60 flex flex-col h-screen shadow-[4px_0_24px_rgba(0,0,0,0.02)] relative z-20">
-        <div className="p-6 border-b border-white/40">
+      {/* Mobile Sidebar Toggle */}
+      <button 
+        onClick={() => setShowSidebar(!showSidebar)} 
+        className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#6B0F1A] text-white p-4 rounded-full shadow-2xl border border-white/20"
+      >
+        {showSidebar ? <X size={24} /> : <Menu size={24} />}
+      </button>
+
+      {/* Sidebar Kiri - Responsive */}
+      <div className={`fixed lg:relative z-40 inset-y-0 left-0 transform ${showSidebar ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 w-72 bg-white/80 backdrop-blur-xl border-r border-white/60 flex flex-col h-screen shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-transform duration-300`}>
+        <div className="p-6 border-b border-gray-200">
           <button onClick={() => setSelectedClient(null)} className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-widest hover:text-[#6B0F1A] transition-colors mb-6">
-            <ArrowLeft size={14} /> Kembali ke Master
+            <ArrowLeft size={14} /> Kembali
           </button>
           <div className="bg-white/60 p-4 rounded-2xl border border-white/80 shadow-sm">
             <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Mengelola Klien</p>
@@ -420,22 +445,22 @@ export default function AdminDashboard() {
       </div>
 
       {/* Konten Tengah */}
-      <div className={`flex-1 overflow-y-auto h-screen relative scroll-smooth ${(activeTab === "wedding" || activeTab === "theme" || activeTab === "sections") ? "lg:flex-none lg:w-[60%]" : ""}`}>
+      <div className={`flex-1 overflow-y-auto h-screen relative scroll-smooth w-full ${showSidebar ? 'pointer-events-none opacity-50 lg:opacity-100 lg:pointer-events-auto' : ''}`}>
         {/* Decorative elements */}
         <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-white/30 rounded-full blur-[100px] pointer-events-none z-0"></div>
         
-        <div className="p-10 relative z-10 max-w-6xl mx-auto">
+        <div className="p-4 md:p-10 relative z-10 max-w-6xl mx-auto">
           <AnimatePresence mode="wait">
             
             {/* TAB: OVERVIEW */}
             {activeTab === "overview" && (
               <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                <div className="mb-8 flex justify-between items-end">
+                <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                   <div>
-                    <h2 className="text-3xl font-bold text-gray-800 font-heading">Analytics Dashboard</h2>
+                    <h2 className="text-2xl md:text-3xl font-bold text-gray-800 font-heading">Analytics Dashboard</h2>
                     <p className="text-gray-500 mt-1">Statistik undangan real-time.</p>
                   </div>
-                  <a href={`/invite/${selectedClient.slug}`} target="_blank" className="px-6 py-2.5 bg-white/60 backdrop-blur-sm border border-white rounded-full text-sm font-bold text-[#6B0F1A] shadow-sm hover:bg-white transition flex items-center gap-2">
+                  <a href={`/invite/${selectedClient.slug}`} target="_blank" className="w-full md:w-auto px-6 py-2.5 bg-white/60 backdrop-blur-sm border border-white rounded-full text-sm font-bold text-[#6B0F1A] shadow-sm hover:bg-white transition flex items-center justify-center gap-2">
                     <LinkIcon size={16} /> Pratinjau Undangan
                   </a>
                 </div>
@@ -475,27 +500,35 @@ export default function AdminDashboard() {
                     <div className="bg-white/40 px-8 py-5 border-b border-white/60">
                       <h3 className="font-bold text-lg text-[#6B0F1A] flex items-center gap-2"><Heart size={20} /> Data Pasangan Pengantin</h3>
                     </div>
-                    <div className="p-8 grid grid-cols-2 gap-10">
-                      <div className="space-y-4">
-                        <h4 className="font-bold text-gray-800 border-b border-gray-200 pb-2 mb-4 text-sm uppercase tracking-wider">Mempelai Pria</h4>
+                    <div className="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
+                      <div className="space-y-4 bg-white/40 p-5 rounded-2xl border border-white/60">
+                        <h4 className="font-bold text-[#6B0F1A] border-b border-[#6B0F1A]/20 pb-2 mb-4 text-sm uppercase tracking-wider">Data Mempelai Pria</h4>
                         <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Nama Panggilan</label>
+                          <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Nama Panggilan</label>
                           <input type="text" value={weddingData.groomName || ""} onChange={e => setWeddingData({...weddingData, groomName: e.target.value})} className={glassInput} required />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Nama Orang Tua</label>
-                          <textarea value={weddingData.groomParents || ""} onChange={e => setWeddingData({...weddingData, groomParents: e.target.value})} className={glassInput} rows={2} required />
+                          <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Nama Lengkap & Gelar</label>
+                          <input type="text" value={weddingData.groomFullName || ""} onChange={e => setWeddingData({...weddingData, groomFullName: e.target.value})} className={glassInput} placeholder="Bpk. Andi Pangerang, S.T." />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Nama Orang Tua</label>
+                          <textarea value={weddingData.groomParents || ""} onChange={e => setWeddingData({...weddingData, groomParents: e.target.value})} className={glassInput} rows={2} required placeholder="Putra pertama dari..." />
                         </div>
                       </div>
-                      <div className="space-y-4">
-                        <h4 className="font-bold text-gray-800 border-b border-gray-200 pb-2 mb-4 text-sm uppercase tracking-wider">Mempelai Wanita</h4>
+                      <div className="space-y-4 bg-white/40 p-5 rounded-2xl border border-white/60">
+                        <h4 className="font-bold text-[#6B0F1A] border-b border-[#6B0F1A]/20 pb-2 mb-4 text-sm uppercase tracking-wider">Data Mempelai Wanita</h4>
                         <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Nama Panggilan</label>
+                          <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Nama Panggilan</label>
                           <input type="text" value={weddingData.brideName || ""} onChange={e => setWeddingData({...weddingData, brideName: e.target.value})} className={glassInput} required />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Nama Orang Tua</label>
-                          <textarea value={weddingData.brideParents || ""} onChange={e => setWeddingData({...weddingData, brideParents: e.target.value})} className={glassInput} rows={2} required />
+                          <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Nama Lengkap & Gelar</label>
+                          <input type="text" value={weddingData.brideFullName || ""} onChange={e => setWeddingData({...weddingData, brideFullName: e.target.value})} className={glassInput} placeholder="Hj. Tenri Abeng, S.E." />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Nama Orang Tua</label>
+                          <textarea value={weddingData.brideParents || ""} onChange={e => setWeddingData({...weddingData, brideParents: e.target.value})} className={glassInput} rows={2} required placeholder="Putri pertama dari..." />
                         </div>
                       </div>
                     </div>
@@ -535,7 +568,7 @@ export default function AdminDashboard() {
                     <div className="bg-white/40 px-8 py-5 border-b border-white/60">
                       <h3 className="font-bold text-lg text-[#6B0F1A] flex items-center gap-2"><LayoutList size={20} /> Teks Kutipan & Penutup</h3>
                     </div>
-                    <div className="p-8 grid grid-cols-2 gap-8">
+                    <div className="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-4">
                         <h4 className="font-bold text-gray-800 border-b border-gray-200 pb-2 mb-4 text-sm uppercase tracking-wider">Bagian Intro (Salam)</h4>
                         <div>
@@ -598,7 +631,7 @@ export default function AdminDashboard() {
                     <div className="bg-white/40 px-8 py-5 border-b border-white/60">
                       <h3 className="font-bold text-lg text-[#6B0F1A] flex items-center gap-2"><MapPin size={20} /> Jadwal Resepsi (Dukungan Link Terpisah)</h3>
                     </div>
-                    <div className="p-8 grid grid-cols-2 gap-8">
+                    <div className="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-4 bg-blue-50/50 border border-blue-100/50 p-6 rounded-3xl">
                         <h4 className="font-bold text-blue-900 border-b border-blue-200 pb-2 mb-4">Resepsi Pihak Pria</h4>
                         <div>

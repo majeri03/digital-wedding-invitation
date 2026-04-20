@@ -18,9 +18,8 @@ export default function Home() {
           <span className="text-xl font-bold font-heading text-gray-900">NikahYuk<span className="text-[#D4AF37]">.SaaS</span></span>
         </div>
         <div className="flex gap-4 items-center">
-          <Link href="/admin" className="text-sm font-semibold text-gray-600 hover:text-[#6B0F1A] transition">Login Admin / Partner</Link>
-          <Link href="/admin" className="px-5 py-2.5 bg-[#6B0F1A] text-white text-sm font-bold rounded-full shadow-lg hover:shadow-xl hover:bg-[#8E1422] transition-all transform hover:-translate-y-0.5">
-            Login Klien Undangan
+          <Link href="/admin" className="px-6 py-2.5 bg-[#6B0F1A] text-white text-sm font-bold rounded-full shadow-lg hover:shadow-xl hover:bg-[#8E1422] transition-all transform hover:-translate-y-0.5">
+            Masuk / Login
           </Link>
         </div>
       </nav>

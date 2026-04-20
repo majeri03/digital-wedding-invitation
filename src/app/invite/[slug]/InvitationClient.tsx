@@ -32,6 +32,8 @@ export default function InvitationClient({ guestName, family, slug }: { guestNam
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [activeSection, setActiveSection] = useState("hero");
   const [isMusicPlaying, setIsMusicPlaying] = useState(!isAdminPreview);
+  const [showNav, setShowNav] = useState(isAdminPreview);
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
 
   const [weddingData, setWeddingData] = useState<any>({
     groomName: "Andi Pangerang",
@@ -113,10 +115,29 @@ export default function InvitationClient({ guestName, family, slug }: { guestNam
       });
     }
     
-    // Auto scroll to the hero section smoothly after opening
+    // Auto scroll story mode
     setTimeout(() => {
-      document.getElementById("hero")?.scrollIntoView({ behavior: "smooth" });
-    }, 500);
+      setIsAutoScrolling(true);
+      const interval = setInterval(() => {
+        window.scrollBy(0, 1.5);
+        // If reached bottom
+        if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 50) {
+          clearInterval(interval);
+          setIsAutoScrolling(false);
+          setShowNav(true);
+        }
+      }, 20); // 50fps smooth scroll
+
+      // Allow user to cancel auto-scroll by scrolling manually
+      const cancelScroll = () => {
+        clearInterval(interval);
+        setIsAutoScrolling(false);
+        setShowNav(true);
+      };
+      
+      window.addEventListener('wheel', cancelScroll, { once: true });
+      window.addEventListener('touchstart', cancelScroll, { once: true });
+    }, 1000);
   };
 
   const toggleMusic = () => {
@@ -221,28 +242,33 @@ export default function InvitationClient({ guestName, family, slug }: { guestNam
             <Footer data={weddingData} />
 
             {/* Bottom Navigation */}
-            <motion.div 
-              initial={{ y: 100 }}
-              animate={{ y: 0 }}
-              transition={{ delay: 1, duration: 0.5 }}
-              className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white/90 backdrop-blur-md px-6 py-3 rounded-full shadow-2xl border border-brand-maroon/10 flex gap-6 items-center"
-            >
-              {[
-                { id: "hero", icon: <Home size={20} />, show: sections.hero !== false },
-                { id: "couple", icon: <Heart size={20} />, show: sections.couple !== false },
-                { id: "schedule", icon: <Calendar size={20} />, show: sections.schedule !== false },
-                { id: "maps", icon: <MapPin size={20} />, show: sections.maps !== false },
-                { id: "rsvp", icon: <Send size={20} />, show: sections.rsvp !== false },
-              ].filter(item => item.show).map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => scrollTo(item.id)}
-                  className={`p-2 transition-colors rounded-full ${activeSection === item.id ? 'bg-brand-maroon text-brand-gold scale-110' : 'text-gray-400 hover:text-brand-maroon'}`}
+            <AnimatePresence>
+              {showNav && (
+                <motion.div 
+                  initial={{ y: 100, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 100, opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white/90 backdrop-blur-md px-6 py-3 rounded-full shadow-2xl border border-brand-maroon/10 flex gap-6 items-center"
                 >
-                  {item.icon}
-                </button>
-              ))}
-            </motion.div>
+                  {[
+                    { id: "hero", icon: <Home size={20} />, show: sections.hero !== false },
+                    { id: "couple", icon: <Heart size={20} />, show: sections.couple !== false },
+                    { id: "schedule", icon: <Calendar size={20} />, show: sections.schedule !== false },
+                    { id: "maps", icon: <MapPin size={20} />, show: sections.maps !== false },
+                    { id: "rsvp", icon: <Send size={20} />, show: sections.rsvp !== false },
+                  ].filter(item => item.show).map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => scrollTo(item.id)}
+                      className={`p-2 transition-colors rounded-full ${activeSection === item.id ? 'bg-brand-maroon text-brand-gold scale-110' : 'text-gray-400 hover:text-brand-maroon'}`}
+                    >
+                      {item.icon}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </>
         )}
       </div>

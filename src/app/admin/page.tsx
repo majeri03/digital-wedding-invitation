@@ -31,6 +31,7 @@ export default function AdminDashboard() {
   const [showAddClient, setShowAddClient] = useState(false);
   const [newClientSlug, setNewClientSlug] = useState("");
   const [newClientName, setNewClientName] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -48,7 +49,7 @@ export default function AdminDashboard() {
     const isAdmin = process.env.NEXT_PUBLIC_ADMIN_EMAIL === user.email;
     
     const clientsRef = collection(db, "clients");
-    const q = isAdmin ? clientsRef : query(clientsRef, where("userId", "==", user.uid));
+    const q = isAdmin ? clientsRef : query(clientsRef, where("ownerEmail", "==", user.email));
 
     const unsub = onSnapshot(q, (snapshot) => {
       const data: any[] = [];
@@ -120,8 +121,8 @@ export default function AdminDashboard() {
       slug: slug,
       clientName: newClientName,
       createdAt: serverTimestamp(),
-      userId: user?.uid, // Hubungkan dengan akun pembuat
-      ownerEmail: user?.email,
+      userId: user?.uid, // ID pembuat (Admin)
+      ownerEmail: newClientEmail || user?.email, // Email Klien (Agar klien bisa login via Google)
       groomName: "Nama Pria",
       brideName: "Nama Wanita",
       groomParents: "Orang Tua Pria",
@@ -154,6 +155,7 @@ export default function AdminDashboard() {
       setShowAddClient(false);
       setNewClientSlug("");
       setNewClientName("");
+      setNewClientEmail("");
     } catch (error) {
       alert("Gagal membuat client");
     }
@@ -317,6 +319,11 @@ export default function AdminDashboard() {
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">URL Slug</label>
                         <input type="text" value={newClientSlug} onChange={e=>setNewClientSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} placeholder="andi-tenri" className={glassInput} required />
                         <p className="text-[10px] text-gray-400 mt-2">Link: /invite/<span className="text-[#6B0F1A] font-bold">{newClientSlug || 'slug'}</span></p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Email Klien (Akun Login)</label>
+                        <input type="email" value={newClientEmail} onChange={e=>setNewClientEmail(e.target.value)} placeholder="email.klien@gmail.com" className={glassInput} required />
+                        <p className="text-[10px] text-gray-400 mt-2">Klien akan login menggunakan email ini via Google Login.</p>
                       </div>
                       <button type="submit" className="w-full py-3 bg-[#D4AF37] text-black font-bold rounded-xl hover:opacity-90">Buat Undangan</button>
                     </form>

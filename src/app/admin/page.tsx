@@ -15,6 +15,7 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Super Admin State
   const [clients, setClients] = useState<any[]>([]);
@@ -48,15 +49,22 @@ export default function AdminDashboard() {
     if (!user) return;
     
     // Check if Super Admin (set your email in .env.local as NEXT_PUBLIC_ADMIN_EMAIL)
-    const isAdmin = process.env.NEXT_PUBLIC_ADMIN_EMAIL === user.email;
+    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+    const userIsAdmin = !!(adminEmail && adminEmail === user.email);
+    setIsAdmin(userIsAdmin);
     
     const clientsRef = collection(db, "clients");
-    const q = isAdmin ? clientsRef : query(clientsRef, where("ownerEmail", "==", user.email));
+    const q = userIsAdmin ? clientsRef : query(clientsRef, where("ownerEmail", "==", user.email));
 
     const unsub = onSnapshot(q, (snapshot) => {
       const data: any[] = [];
       snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
       setClients(data);
+      
+      // Auto-select for clients with exactly 1 invitation
+      if (!userIsAdmin && data.length === 1) {
+        setSelectedClient(data[0]);
+      }
     });
     return () => unsub();
   }, [user]);
@@ -120,15 +128,33 @@ export default function AdminDashboard() {
 
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    const slug = newClientSlug.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-    if(!slug) return alert("Slug tidak valid");
+    e.stopPropagation();
+    
+    if (!isAdmin) {
+      alert("Hanya admin yang bisa membuat undangan baru.");
+      return;
+    }
+    
+    const slug = newClientSlug.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    if(!slug || slug.length < 3) {
+      alert("Slug tidak valid. Minimal 3 karakter (huruf kecil, angka, dan strip).");
+      return;
+    }
+    if(!newClientName.trim()) {
+      alert("Nama pasangan harus diisi.");
+      return;
+    }
+    if(!newClientEmail.trim()) {
+      alert("Email klien harus diisi agar klien bisa login.");
+      return;
+    }
     
     const newClientData = {
       slug: slug,
-      clientName: newClientName,
+      clientName: newClientName.trim(),
       createdAt: serverTimestamp(),
       userId: user?.uid, // ID pembuat (Admin)
-      ownerEmail: newClientEmail || user?.email, // Email Klien (Agar klien bisa login via Google)
+      ownerEmail: newClientEmail.trim().toLowerCase(), // Email Klien (Agar klien bisa login via Google)
       groomName: "Nama Pria",
       brideName: "Nama Wanita",
       groomParents: "Orang Tua Pria",
@@ -144,8 +170,11 @@ export default function AdminDashboard() {
       theme: "premium-bugis",
       sections: {
         hero: true,
+        intro: true,
+        quote: true,
         couple: true,
         loveStory: true,
+        countdown: true,
         schedule: true,
         gallery: true,
         rsvp: true,
@@ -164,8 +193,8 @@ export default function AdminDashboard() {
       setNewClientEmail("");
       alert("Undangan berhasil dibuat!");
     } catch (error: any) {
-      console.error(error);
-      alert("Gagal membuat client: " + error.message);
+      console.error("Error creating client:", error);
+      alert("Gagal membuat client: " + (error?.message || "Terjadi kesalahan. Cek console untuk detail."));
     }
   };
 
@@ -302,8 +331,13 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto relative z-10">
           <header className="flex flex-col md:flex-row justify-between items-center mb-12 bg-white/30 backdrop-blur-lg px-8 py-4 rounded-3xl border border-white/60 shadow-sm gap-4">
             <div className="text-center md:text-left">
-              <h1 className="text-2xl font-bold text-[#6B0F1A] font-heading tracking-wide">Dashboard Klien / Admin</h1>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">Sistem Manajemen Undangan</p>
+              <div className="flex items-center gap-3 justify-center md:justify-start">
+                <h1 className="text-2xl font-bold text-[#6B0F1A] font-heading tracking-wide">{isAdmin ? 'Admin Dashboard' : 'Dashboard Klien'}</h1>
+                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${isAdmin ? 'bg-[#6B0F1A] text-[#D4AF37]' : 'bg-[#D4AF37]/20 text-[#6B0F1A]'}`}>
+                  {isAdmin ? '👑 ADMIN' : '👤 KLIEN'}
+                </span>
+              </div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">{user?.email}</p>
             </div>
             <button onClick={() => signOut(auth)} className="flex items-center gap-2 px-5 py-2.5 bg-red-500/10 text-red-600 font-bold rounded-full hover:bg-red-500/20 transition-all text-sm w-full md:w-auto justify-center">
               <LogOut size={16} /> Logout
@@ -317,12 +351,14 @@ export default function AdminDashboard() {
                   <Users size={32} />
                 </div>
                 <h3 className="text-4xl font-bold text-gray-800">{clients.length}</h3>
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mt-1">Total Undangan Anda</p>
+                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mt-1">{isAdmin ? 'Total Semua Undangan' : 'Undangan Anda'}</p>
               </div>
               
-              <button onClick={() => setShowAddClient(!showAddClient)} className={`w-full py-5 rounded-3xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg text-white bg-gradient-to-r from-[#6B0F1A] to-[#8E1422] hover:shadow-xl hover:-translate-y-1`}>
-                <Plus size={20} /> Buat Undangan Baru
-              </button>
+              {isAdmin && (
+                <button onClick={() => setShowAddClient(!showAddClient)} className={`w-full py-5 rounded-3xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg text-white bg-gradient-to-r from-[#6B0F1A] to-[#8E1422] hover:shadow-xl hover:-translate-y-1`}>
+                  <Plus size={20} /> Buat Undangan Baru
+                </button>
+              )}
 
               <AnimatePresence>
                 {showAddClient && (
@@ -366,14 +402,14 @@ export default function AdminDashboard() {
                       <p className="text-xs text-gray-500 font-mono bg-white/50 inline-block px-2 py-1 rounded mt-1 border border-gray-100">/invite/{client.slug}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <button onClick={(e) => { e.stopPropagation(); handleDeleteClient(client.id); }} className="p-2 text-red-400 hover:text-red-600 bg-white/50 rounded-full hover:bg-red-50 transition opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
+                      {isAdmin && <button onClick={(e) => { e.stopPropagation(); handleDeleteClient(client.id); }} className="p-2 text-red-400 hover:text-red-600 bg-white/50 rounded-full hover:bg-red-50 transition opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>}
                       <div className="w-10 h-10 rounded-full bg-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37] group-hover:bg-[#D4AF37] group-hover:text-white transition-colors">
                         <ChevronRight size={20} />
                       </div>
                     </div>
                   </motion.div>
                 ))}
-                {clients.length === 0 && <div className="col-span-2 text-center py-12 text-gray-500 italic">Belum ada klien yang terdaftar.</div>}
+                {clients.length === 0 && <div className="col-span-2 text-center py-12 text-gray-500 italic">{isAdmin ? 'Belum ada klien yang terdaftar.' : 'Anda belum memiliki undangan. Hubungi admin untuk dibuatkan undangan.'}</div>}
               </div>
             </div>
           </div>

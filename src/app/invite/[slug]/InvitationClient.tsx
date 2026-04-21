@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -31,9 +31,10 @@ export default function InvitationClient({ guestName, family, slug }: { guestNam
   const [isOpened, setIsOpened] = useState(isAdminPreview);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [activeSection, setActiveSection] = useState("hero");
-  const [isMusicPlaying, setIsMusicPlaying] = useState(!isAdminPreview);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [showNav, setShowNav] = useState(isAdminPreview);
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const [musicPermissionGranted, setMusicPermissionGranted] = useState(false);
 
   const [weddingData, setWeddingData] = useState<any>({
     groomName: "Andi Pangerang",
@@ -104,13 +105,33 @@ export default function InvitationClient({ guestName, family, slug }: { guestNam
     };
   }, []);
 
+  // Collect all image URLs that need to be preloaded
+  const imagesToPreload = useMemo(() => {
+    const images: string[] = [];
+    // Cover/Hero backgrounds
+    if (weddingData.coverBackground) images.push(weddingData.coverBackground);
+    if (weddingData.heroBackground) images.push(weddingData.heroBackground);
+    // Gallery images from data
+    if (weddingData.galleryImages && weddingData.galleryImages.length > 0) {
+      images.push(...weddingData.galleryImages);
+    }
+    // Groom/Bride photos
+    if (weddingData.groomPhoto) images.push(weddingData.groomPhoto);
+    if (weddingData.bridePhoto) images.push(weddingData.bridePhoto);
+    return images;
+  }, [weddingData]);
+
+  const audioSrc = weddingData.bgMusic || "/music/wedding-song.mp3";
+
   const handleOpen = () => {
     setIsOpened(true);
-    if (audioRef.current) {
+    
+    // Play music only if user has granted permission during cover screen
+    if (musicPermissionGranted && audioRef.current) {
       audioRef.current.play().then(() => {
         setIsMusicPlaying(true);
-      }).catch(() => {
-        console.log("Audio file missing or blocked by browser.");
+      }).catch((err) => {
+        console.log("Audio play blocked:", err);
         setIsMusicPlaying(false);
       });
     }
@@ -146,8 +167,12 @@ export default function InvitationClient({ guestName, family, slug }: { guestNam
         audioRef.current.pause();
         setIsMusicPlaying(false);
       } else {
-        audioRef.current.play();
-        setIsMusicPlaying(true);
+        audioRef.current.play().then(() => {
+          setIsMusicPlaying(true);
+        }).catch(() => {
+          console.log("Cannot play music - user interaction required");
+          setIsMusicPlaying(false);
+        });
       }
     }
   };
@@ -193,9 +218,19 @@ export default function InvitationClient({ guestName, family, slug }: { guestNam
   return (
     <main className="relative min-h-screen bg-brand-ivory text-brand-maroon overflow-x-hidden pb-20">
       <style>{getThemeStyles()}</style>
-      {isLoading && <LoadingScreen onComplete={() => setIsLoading(false)} />}
       
-      <audio ref={audioRef} src={weddingData.bgMusic || "/music/wedding-song.mp3"} loop />
+      {/* Smart Loading: Actually preloads all images + audio */}
+      {isLoading && (
+        <LoadingScreen
+          onComplete={() => setIsLoading(false)}
+          imagesToPreload={imagesToPreload}
+          audioSrc={audioSrc}
+          groomName={weddingData.groomName || "A"}
+          brideName={weddingData.brideName || "T"}
+        />
+      )}
+      
+      <audio ref={audioRef} src={audioSrc} loop preload="auto" />
       
       {isOpened && (
         <motion.button
@@ -210,7 +245,12 @@ export default function InvitationClient({ guestName, family, slug }: { guestNam
 
       <AnimatePresence>
         {!isLoading && !isOpened && (
-          <Cover guestName={guestName} onOpen={handleOpen} data={weddingData} />
+          <Cover
+            guestName={guestName}
+            onOpen={handleOpen}
+            data={weddingData}
+            onMusicPermission={(granted: boolean) => setMusicPermissionGranted(granted)}
+          />
         )}
       </AnimatePresence>
 
@@ -275,4 +315,3 @@ export default function InvitationClient({ guestName, family, slug }: { guestNam
     </main>
   );
 }
-
